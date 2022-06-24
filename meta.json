@@ -1,15 +1,15 @@
 { 
    "licenseType" : "CC BY-SA", 
-   "creatorName" : "Author", 
-   "packageName" : "MyPlugin", 
+   "creatorName" : "Pineapler", 
+   "packageName" : "VamCuaSuperglue", 
    "includeVersionsInReferences" : "true", 
-   "description" : "v0.0.0 MyPlugin Description", 
+   "description" : "v0.0.0 VamCuaSuperglue Description", 
    "credits" : "", 
    "instructions" : "", 
-   "promotionalLink" : "https://github.com/Author/MyPlugin", 
+   "promotionalLink" : "https://github.com/Pineapler/vam-cua-superglue", 
    "programVersion" : "1.19.0.5", 
    "contentList" : [ 
-      "Custom\\Scripts\\Author\\MyPlugin\\MyPlugin.cs"
+      "Custom\\Scripts\\Pineapler\\VamCuaSuperglue\\VamCuaSuperglue.cs"
    ], 
    "dependencies" : { 
    }
