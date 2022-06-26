@@ -1,66 +1,89 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
+using MeshVR;
+using PrefabEvolution;
 using UnityEngine;
 
 public class VamCuaSuperglue : MVRScript
 {
-    private JSONStorableBool _myValueJSON;
     public List<Atom> cuaAtoms;
+    public List<GlueEntry> glueEntries;
     public List<Pose> prevFrame;
     public List<Pose> thisFrame;
 
     public override void Init() {
+        // Subscribe to Atom delegates
 
-        // Example storable; you can also create string, float and action JSON storables
-        _myValueJSON = new JSONStorableBool("My Storable", false);
-        // You can listen to changes
-        _myValueJSON.setCallbackFunction = (bool val) => SuperController.LogMessage($"VamCuaSuperglue: Received {val}");
-        // You can use Register* methods to make your storable triggerable, and save and restore the value with the scene
-        RegisterBool(_myValueJSON);
-        // You can use Create* methods to add a control in the plugin's custom UI
-        CreateToggle(_myValueJSON);
+        try {
+            RefreshCuas();
+        }
+        catch (Exception e) {
+            Err("[VamCuaSuperglue]: " + e);
+            DestroyImmediate(this);
+        }
+    }
 
-        RefreshCuas();
-
+    public void OnDestroy() {
+        // Unsubscribe from Atom delegates
     }
 
 
     public void RefreshCuas() {
-        // TODO: Filter only atoms with "Parent Link"
         cuaAtoms = SuperController.singleton.GetAtoms()
-            .FindAll(a => a.type.Equals("CustomUnityAsset"));
+            .FindAll(a => a.type.Equals("CustomUnityAsset") &&
+                          a.mainController.linkToRB != null);
+
 
         prevFrame = new List<Pose>(cuaAtoms.Count);
         thisFrame = new List<Pose>(cuaAtoms.Count);
+        glueEntries = new List<GlueEntry>(cuaAtoms.Count);
 
         foreach (Atom a in cuaAtoms) {
-            Transform reparent = a.transform.Find("reParentObject/object");
-            if (reparent == null) {
-                Log(a.name + ": no control");
-                continue;
-            }
+            Transform objTransform = a.transform.Find("reParentObject/object");
 
-            Pose pose = new Pose(reparent.transform.position, reparent.transform.rotation);
+            Pose pose = new Pose(objTransform.position, objTransform.rotation);
             prevFrame.Add(pose);
             thisFrame.Add(pose);
 
-            Log(a.name + " " + reparent.transform.position + " " + !a.freezePhysicsJSON.valNoCallback);
-        }
+            JSONStorable control = a.GetStorableByID("control");
+            // Log(a.name + " " + (a.mainController.linkToRB != null));
+            bool isPhysicsEnabled = control.GetBoolParamValue("physicsEnabled");
+            string posStr = control.GetStringChooserParamValue("positionState");
+            string rotStr = control.GetStringChooserParamValue("rotationState");
+            bool isPosParentLink = posStr != null && posStr.Equals("ParentLink");
+            bool isRotParentLink = rotStr != null && rotStr.Equals("ParentLink");
+            glueEntries.Add(new GlueEntry(objTransform, isPhysicsEnabled, isPosParentLink, isRotParentLink));
 
-        Log(ObjectHierarchyToString(cuaAtoms[0].transform, t => t.name + " " + (t.GetComponent<Rigidbody>() != null)));
+        }
+        // Log(cuaAtoms[2].GetStorableByID("control").GetAllParamAndActionNames().Aggregate( (current, next) => current + "\n    " + next));
     }
+
+    // public void OnUIDsChanged(List<string> uids) {
+    //     foreach (string s in uids) {
+    //         Log(s);
+    //     }
+    // }
 
 
     public void LateUpdate() {
-        for(int i = 0; i < cuaAtoms.Count; i++) {
-            Transform a = cuaAtoms[i].transform.Find("reParentObject/object");
-            thisFrame[i] = new Pose(a.position, a.rotation);
+        for (int i = 0; i < glueEntries.Count; i++) {
+            GlueEntry g = glueEntries[i];
+            if (g.isPhysicsEnabled) {
+                continue;
+            }
 
+            thisFrame[i] = new Pose(g.transform.position, g.transform.rotation);
             Pose prevPose = prevFrame[i];
-            a.position = prevPose.position;
-            a.rotation = prevPose.rotation;
+
+            if (g.isPosParentLink) {
+                g.transform.position = prevPose.position;
+            }
+            if (g.isRotParentLink) {
+                g.transform.rotation = prevPose.rotation;
+            }
 
         }
 
@@ -68,6 +91,21 @@ public class VamCuaSuperglue : MVRScript
         List<Pose> tempList = prevFrame;
         prevFrame = thisFrame;
         thisFrame = tempList;
+    }
+
+    public class GlueEntry {
+        // public Atom atom;
+        public Transform transform;
+        public bool isPhysicsEnabled;
+        public bool isPosParentLink;
+        public bool isRotParentLink;
+
+        public GlueEntry(Transform transform = null, bool isPhysicsEnabled = false, bool isPosParentLink = true, bool isRotParentLink = true) {
+            this.transform = transform;
+            this.isPhysicsEnabled = isPhysicsEnabled;
+            this.isPosParentLink = isPosParentLink;
+            this.isRotParentLink = isRotParentLink;
+        }
     }
 
 
