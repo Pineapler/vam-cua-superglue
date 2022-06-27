@@ -12,6 +12,8 @@ Add the plugin as a **Session plugin**. One instance is all you need! Any more w
 
 That's it! The rest is automatic.
 
+To load the plugin every time the game starts, add the plugin then select Session Plugin Presets > Change User Defaults > Set Current as User Defaults.
+
 ## Troubleshooting
 
 The effect only works on CustomUnityAsset atoms with Physics disabled. If you think your CUA should be glued but it's not, check that the following settings are set:
