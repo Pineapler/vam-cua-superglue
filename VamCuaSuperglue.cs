@@ -1,10 +1,13 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using UnityEngine;
 
 public class VamCuaSuperglue : MVRScript {
+
+    public static VamCuaSuperglue singleton;
+
     public List<Atom> cuaAtoms;
     public Dictionary<Atom, GlueEntry> glueEntries;
     public UIDynamicTextField infoPanel;
@@ -12,8 +15,24 @@ public class VamCuaSuperglue : MVRScript {
     public JSONStorableString infoString;
     public JSONStorableString usageString;
 
+    private int _errCount = 0;
+
     public override void Init() {
         try {
+            if (!containingAtom.type.Equals("SessionPluginManager") &&
+                !containingAtom.type.Equals("CoreControl")) {
+                Err("[VamCuaSuperglue] Please make sure this plugin is set in Session or Scene. Current: " + containingAtom.type);
+                Destroy(this);
+            }
+
+            // // Singletons don't work, each script runs in its own context
+            // if (singleton != null) {
+            //     Err("[VamCuaSuperglue] An instance of this plugin already exists: " + singleton.containingAtom.type);
+            //     Destroy(this);
+            // }
+
+            singleton = this;
+
             InitCustomUI();
             SubscribeDelegates();
             RefreshCuas();
@@ -30,13 +49,14 @@ public class VamCuaSuperglue : MVRScript {
         infoPanel = CreateTextField(infoString);
         infoPanel.height = 1000;
 
-        string tmp = @"CUA Superglue by Pineapler
+        const string tmp = @"CUA Superglue by Pineapler
 
 Usage:
 This plugin should work automatically, but in the event of it not working here are some options to troubleshoot.
 
-In your CUA, make sure the following options are selected:
+Make sure there is only one instance of this plugin loaded anywhere.
 
+In your CUA, make sure the following options are selected:
 Physics Object
     > Physics (Disabled)
 
@@ -52,15 +72,44 @@ Control
 
     public void SubscribeDelegates() {
         // SuperController.singleton.onAtomUIDsChangedHandlers += OnUIDsChanged;
-
+        SuperController.singleton.onAtomAddedHandlers += OnAtomAdded;
+        SuperController.singleton.onAtomRemovedHandlers += OnAtomRemoved;
+        SuperController.singleton.onSceneLoadedHandlers += RefreshCuas;
+        SuperController.singleton.onSubSceneLoadedHandlers += OnSubSceneLoaded;
     }
 
     public void UnsubscribeDelegates() {
+        SuperController.singleton.onAtomAddedHandlers -= OnAtomAdded;
+        SuperController.singleton.onAtomRemovedHandlers -= OnAtomRemoved;
+        SuperController.singleton.onSceneLoadedHandlers -= RefreshCuas;
+        SuperController.singleton.onSubSceneLoadedHandlers -= OnSubSceneLoaded;
 
     }
 
+    public void OnAtomAdded(Atom atom) {
+        DbgLog("Atom added: " + atom.name);
+        glueEntries.Add(atom, new GlueEntry(atom));
+        UpdateInfoPanel();
+    }
+
+    public void OnAtomRemoved(Atom atom) {
+        DbgLog("Atom removed: " + atom.name);
+        if (glueEntries.ContainsKey(atom)) {
+            glueEntries.Remove(atom);
+        }
+        UpdateInfoPanel();
+    }
+
+    public void OnSubSceneLoaded(SubScene subScene) {
+        RefreshCuas();
+    }
+
+
     public void OnDestroy() {
         UnsubscribeDelegates();
+        foreach (KeyValuePair<Atom, GlueEntry> pair in glueEntries) {
+            pair.Value.Unsubscribe();
+        }
     }
 
 
@@ -97,10 +146,16 @@ Control
             foreach (KeyValuePair<Atom, GlueEntry> pair in glueEntries) {
                 pair.Value.Stick();
             }
+
+            _errCount = 0;
         }
         catch (Exception e) {
-            Err("[VamCuaSuperglue]: " + e);
-            Destroy(this);
+            _errCount++;
+            Err($"[VamCuaSuperglue ({_errCount})]: {e}");
+            RefreshCuas();
+            if (_errCount >= 5) {
+                Destroy(this);
+            }
         }
     }
 
@@ -112,25 +167,51 @@ Control
         public bool isPosParentLink;
         public bool isRotParentLink;
 
-        public GlueEntry(Atom atom) {
-            RefreshGlue(atom);
-        }
+        private JSONStorableBool _isPhysicsEnabledJson;
+        private JSONStorableStringChooser _isPosParentLinkJson;
+        private JSONStorableStringChooser _isRotParentLinkJson;
 
-        public void RefreshGlue(Atom atom){
+        public GlueEntry(Atom atom) {
             transform = atom.transform.Find("reParentObject/object");
             JSONStorable control = atom.GetStorableByID("control");
 
-            isPhysicsEnabled = control.GetBoolParamValue("physicsEnabled");
-            string posStr = control.GetStringChooserParamValue("positionState");
-            string rotStr = control.GetStringChooserParamValue("rotationState");
-            isPosParentLink = posStr != null && posStr.Equals("ParentLink");
-            isRotParentLink = rotStr != null && rotStr.Equals("ParentLink");
+            _isPhysicsEnabledJson = control.GetBoolJSONParam("physicsEnabled");
+            _isPosParentLinkJson = control.GetStringChooserJSONParam("positionState");
+            _isRotParentLinkJson = control.GetStringChooserJSONParam("rotationState");
+
+            _isPhysicsEnabledJson.setCallbackFunction += PhysicsCallback;
+            _isPosParentLinkJson.setCallbackFunction += PosCallback;
+            _isRotParentLinkJson.setCallbackFunction += RotCallback;
 
             if (transform != null) {
                 prevPose = new Pose(transform.position, transform.rotation);
                 thisPose = prevPose;
             }
+            RefreshGlue(atom);
+        }
 
+        public void RefreshGlue(Atom atom){
+            PhysicsCallback(_isPhysicsEnabledJson.valNoCallback);
+            PosCallback(_isPosParentLinkJson.valNoCallback);
+            RotCallback(_isPosParentLinkJson.valNoCallback);
+
+
+            DbgLog(atom.name + " " + isPhysicsEnabled + " " + isPosParentLink + " " + isRotParentLink);
+        }
+
+        public void PhysicsCallback(bool val) {
+            isPhysicsEnabled = val;
+            singleton.UpdateInfoPanel();
+        }
+
+        public void PosCallback(string val) {
+            isPosParentLink = val.Equals("ParentLink");
+            singleton.UpdateInfoPanel();
+        }
+
+        public void RotCallback(string val) {
+            isRotParentLink = val.Equals("ParentLink");
+            singleton.UpdateInfoPanel();
         }
 
         public void Stick() {
@@ -147,10 +228,24 @@ Control
 
             prevPose = thisPose;
         }
+
+        public void Unsubscribe() {
+            _isPhysicsEnabledJson.setCallbackFunction -= PhysicsCallback;
+            _isPosParentLinkJson.setCallbackFunction -= PosCallback;
+            _isRotParentLinkJson.setCallbackFunction -= RotCallback;
+        }
     }
 
 
     #region Util
+
+    public const bool debug = false;
+
+    public static void DbgLog(string message) {
+        if (!debug) return;
+        SuperController.LogMessage(message);
+    }
+
     public static void Log(string message) {
         SuperController.LogMessage(message);
     }
