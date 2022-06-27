@@ -2,7 +2,7 @@
 
 Stick your CUAs where they belong! Automatically remove lag from CUAs attached to Person atoms, such as hair and accessories.
 
-![](E:\Large games\VAM\Custom\Scripts\Pineapler\vam-cua-superglue\media\00-showcase.mov "Superglue Showcase")
+https://user-images.githubusercontent.com/103406651/175865924-820537c2-0d5a-4efb-913e-cc4079f703fd.mp4
 
 ## Using this plugin
 
@@ -16,10 +16,13 @@ The effect only works on CustomUnityAsset atoms with Physics disabled. If you th
 
  - Physics Options 
    - Physics (False)
+
 ![](media/01-settings.png "Physics Options window")
+
  - Control
    - Link To Atom (as desired)
    - Position, Rotation (Parent Link)
+
 ![](media/02-settings.png "Control window")
    
 If you run into any further issues, submit an Issue on Github or message me on Discord (Pineapler#3512).
