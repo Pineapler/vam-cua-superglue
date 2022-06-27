@@ -4,7 +4,7 @@ Stick your CUAs where they belong! Automatically remove lag from all CUAs attach
 
 https://user-images.githubusercontent.com/103406651/175865924-820537c2-0d5a-4efb-913e-cc4079f703fd.mp4
 
-Look: Devil Mercy by OniEkohvius (not included)
+Look: [Devil Mercy by OniEkohvius](https://hub.virtamate.com/resources/mercy-devil.19012/) (not included)
 
 ## Using this plugin
 
