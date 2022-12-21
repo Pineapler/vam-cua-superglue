@@ -131,9 +131,7 @@ Control
         infoString.val = "Glued CUAs:\n";
         StringBuilder builder = new StringBuilder();
         foreach (KeyValuePair<Atom, GlueEntry> pair in glueEntries) {
-            bool isTracked = pair.Key.mainController.linkToRB != null &&
-                             !pair.Value.isPhysicsEnabled;
-            builder.Append(isTracked ? "\n[X]   " : "\n[   ]   ");
+            builder.Append(pair.Value.IsTracked ? "\n[X]   " : "\n[   ]   ");
             builder.Append(pair.Key.name);
         }
 
@@ -144,22 +142,25 @@ Control
     public void LateUpdate() {
         try {
             foreach (KeyValuePair<Atom, GlueEntry> pair in glueEntries) {
-                pair.Value.Stick();
+                if (pair.Value.IsTracked) {
+                    pair.Value.Stick();
+                }
             }
 
             _errCount = 0;
         }
         catch (Exception e) {
             _errCount++;
-            Err($"[VamCuaSuperglue ({_errCount})]: {e}");
             RefreshCuas();
-            if (_errCount >= 5) {
+            if (_errCount >= 3) {
+                Err($"[VamCuaSuperglue] errored ({_errCount}) times: {e}");
                 Destroy(this);
             }
         }
     }
 
     public class GlueEntry {
+        public Atom cuaAtom;
         public Transform transform;
         public Pose prevPose;
         public Pose thisPose;
@@ -171,8 +172,20 @@ Control
         private JSONStorableStringChooser _isPosParentLinkJson;
         private JSONStorableStringChooser _isRotParentLinkJson;
 
+        public bool IsTracked => cuaAtom.mainController.linkToRB &&
+                                 isPhysicsEnabled &&
+                                 transform;
+
         public GlueEntry(Atom atom) {
+            cuaAtom = atom;
             transform = atom.transform.Find("reParentObject/object");
+            if (!transform) {
+                if (debug) {
+                    Err($"[VamCuaSuperglue] Transform is null on atom {atom.name}");
+                }
+                // isPhysicsEnabled = true; // Don't spam errors
+            }
+
             JSONStorable control = atom.GetStorableByID("control");
 
             _isPhysicsEnabledJson = control.GetBoolJSONParam("physicsEnabled");
@@ -183,7 +196,7 @@ Control
             _isPosParentLinkJson.setCallbackFunction += PosCallback;
             _isRotParentLinkJson.setCallbackFunction += RotCallback;
 
-            if (transform != null) {
+            if (transform) {
                 prevPose = new Pose(transform.position, transform.rotation);
                 thisPose = prevPose;
             }
@@ -195,8 +208,7 @@ Control
             PosCallback(_isPosParentLinkJson.valNoCallback);
             RotCallback(_isPosParentLinkJson.valNoCallback);
 
-
-            DbgLog(atom.name + " " + isPhysicsEnabled + " " + isPosParentLink + " " + isRotParentLink);
+            DbgLog(atom.name + ": " + isPhysicsEnabled + " " + isPosParentLink + " " + isRotParentLink);
         }
 
         public void PhysicsCallback(bool val) {
@@ -215,8 +227,6 @@ Control
         }
 
         public void Stick() {
-            if (isPhysicsEnabled) return;
-
             thisPose = new Pose(transform.position, transform.rotation);
 
             if (isPosParentLink) {
@@ -241,6 +251,10 @@ Control
 
     public const bool debug = false;
 
+    /// <summary>
+    /// Debug log is only called with the debug flag enabled
+    /// </summary>
+    /// <param name="message"></param>
     public static void DbgLog(string message) {
         if (!debug) return;
         SuperController.LogMessage(message);
