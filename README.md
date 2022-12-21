@@ -1,14 +1,18 @@
 # VaM CUA Superglue
 
-Stick your CUAs where they belong! Automatically remove lag from CUAs attached to Person atoms, such as hair and accessories.
+Stick your CUAs where they belong! Automatically remove lag from all CUAs attached to Person atoms, such as hair and accessories.
 
 https://user-images.githubusercontent.com/103406651/175865924-820537c2-0d5a-4efb-913e-cc4079f703fd.mp4
 
+Look: [Devil Mercy by OniEkohvius](https://hub.virtamate.com/resources/mercy-devil.19012/) (not included)
+
 ## Using this plugin
 
-Add the plugin as a **Session plugin**. Scene plugin is also supported but not recommended, as having multiple instances of the plugin loaded will cancel out the effect.
+Add the plugin as a **Session plugin**. One instance is all you need! Any more will cancel out the effect.
 
 That's it! The rest is automatic.
+
+To load the plugin every time the game starts, add the plugin then select Session Plugin Presets > Change User Defaults > Set Current as User Defaults.
 
 ## Troubleshooting
 
