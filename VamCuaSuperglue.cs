@@ -173,7 +173,7 @@ Control
         private JSONStorableStringChooser _isRotParentLinkJson;
 
         public bool IsTracked => cuaAtom.mainController.linkToRB &&
-                                 isPhysicsEnabled &&
+                                 isPhysicsEnabled == false &&
                                  transform;
 
         public GlueEntry(Atom atom) {
